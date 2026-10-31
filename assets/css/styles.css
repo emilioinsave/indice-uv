@@ -663,6 +663,19 @@ main {
   border-radius: 0;
 }
 
+.legend i.est {
+  background: var(--ink-soft);
+  opacity: 0.45;
+  border: 1px dashed var(--ink);
+}
+
+/* Puntos estimados: sol bajo, el sensor queda parcialmente en sombra */
+.chart .bar-est {
+  fill-opacity: 0.4;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
 /* ---------- Tablas ---------- */
 
 .table-scroll {
@@ -709,6 +722,12 @@ main {
 
 .matrix__table td.empty {
   color: var(--ink-soft);
+}
+
+.matrix__table td.is-estimado {
+  opacity: 0.55;
+  outline: 1px dashed var(--ink-soft);
+  outline-offset: -3px;
 }
 
 .matrix__table .col-max {

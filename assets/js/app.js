@@ -9,6 +9,9 @@
     dataUrl: "data/data.json",
     refreshMs: 5 * 60 * 1000,
     ozoneDU: 280, // columna de ozono típica para el modelo de cielo despejado
+    defaultIntervalMin: 10,
+    // Ventana de operación de la estación, en minutos del día (06:00 a 20:30)
+    activeWindow: { start: 6 * 60, end: 20 * 60 + 30 },
   };
 
   // Escala de la OMS
@@ -45,9 +48,6 @@
     },
   ];
   const NO_LEVEL = { key: "none", name: "Sin datos", color: "#8a99ab", fg: "#ffffff", advice: "" };
-
-  const UVI_TO_WM2 = 0.025; // 1 punto del índice = 25 mW/m² eritémicos
-  const SED_J = 100;
 
   const $ = (id) => document.getElementById(id);
   const svgNS = "http://www.w3.org/2000/svg";
@@ -187,30 +187,39 @@
 
   /* ---------------- Análisis de un día ---------------- */
 
+  function intervalMin() {
+    return (state.data && state.data.measurement_interval_minutes) || CONFIG.defaultIntervalMin;
+  }
+
+  // Ciclo de medición más cercano al minuto m
+  function cycleOf(m, step) {
+    return Math.round(m / step) * step;
+  }
+
   function analyze(key) {
     const day = state.days.get(key);
     const series = day ? day.series : [];
-    const step = state.data.measurement_interval_minutes || 5;
+    const step = intervalMin();
     const sun = sunTimes(key);
+    const win = CONFIG.activeWindow;
     let max = null;
     let minutesHigh = 0;
-    let doseJ = 0;
-    let daylightSamples = 0;
+    const received = new Set();
 
     for (const [m, uvi] of series) {
       if (uvi === null) continue;
       if (max === null || uvi > max[1]) max = [m, uvi];
       if (uvi >= 6) minutesHigh += step;
-      doseJ += uvi * UVI_TO_WM2 * step * 60;
-      if (m >= sun.rise && m <= sun.set) daylightSamples += 1;
+      // Las lecturas fuera de la ventana de operación se grafican pero no cuentan como recibidas
+      if (m >= win.start && m <= win.end) received.add(cycleOf(m, step));
     }
 
     const now = localParts(refNow());
-    const end = key === now.date ? Math.min(now.minute, sun.set) : sun.set;
-    const expected = Math.max(0, Math.floor((end - sun.rise) / step) + 1);
-    const coverage = expected > 0 ? Math.min(1, daylightSamples / expected) : null;
+    const end = key === now.date ? Math.min(now.minute, win.end) : win.end;
+    const expected = end < win.start ? 0 : Math.floor((end - win.start) / step) + 1;
+    const coverage = expected > 0 ? Math.min(1, received.size / expected) : null;
 
-    return { series, max, minutesHigh, doseSed: doseJ / SED_J, coverage, sun, step };
+    return { series, max, minutesHigh, coverage, sun, step };
   }
 
   function riskWindow(key, threshold) {
@@ -272,6 +281,14 @@
     renderHistory();
     renderGuide();
     renderSpecs();
+    renderDataInfo();
+  }
+
+  function renderDataInfo() {
+    for (const el of document.querySelectorAll(".js-interval")) el.textContent = intervalMin();
+    const version = state.data.calibration_version;
+    $("calibration").hidden = !version;
+    $("calibration-version").textContent = version || "";
   }
 
   function isStale() {
@@ -384,7 +401,7 @@
 
     const day = state.days.get(key);
     if (day) {
-      const half = (state.data.measurement_interval_minutes || 5) / 2;
+      const half = intervalMin() / 2;
       for (const [m, uvi] of day.series) {
         if (m < sun.rise || m > sun.set || uvi === null) continue;
         const f1 = Math.max(0, frac(m - half - 0.4));
@@ -525,7 +542,6 @@
       statItem("Máximo", a.max ? `${chipHtml(a.max[1])} <small>${levelOf(a.max[1]).name.toLowerCase()}</small>` : "--"),
       statItem("Hora del máximo", a.max ? hm(a.max[0]) : "--"),
       statItem("Con UV alto o más", duration(a.minutesHigh)),
-      statItem("Dosis eritémica", `${nf1.format(a.doseSed)} <small>SED</small>`),
       statItem("Datos recibidos", a.coverage === null ? "--" : `${nf0.format(a.coverage * 100)} <small>%</small>`),
     );
     drawDayChart(key, a);
@@ -613,9 +629,11 @@
     // Barras
     const bw = Math.max(1, (step / (t1 - t0)) * pw - (pw > 700 ? 0.8 : 0.3));
     const bars = svg("g", {}, root);
-    for (const [m, uvi] of inWin) {
+    for (const [m, uvi, , estado] of inWin) {
       if (!uvi) continue;
-      svg("rect", { x: x(m) - bw / 2, y: y(uvi), width: bw, height: y(0) - y(uvi), fill: levelOf(uvi).color }, bars);
+      const color = levelOf(uvi).color;
+      const est = estado === "estimado" ? { class: "bar-est", stroke: color } : {};
+      svg("rect", { x: x(m) - bw / 2, y: y(uvi), width: bw, height: y(0) - y(uvi), fill: color, ...est }, bars);
     }
 
     // Cielo despejado
@@ -643,7 +661,8 @@
       const cs = clearSkyUvi(key, best[0]);
       showTip(`<strong>${hm(best[0])}</strong><br>Índice UV ${best[1]}, ${lv.name.toLowerCase()}`
         + (best[2] !== null && best[2] !== undefined ? `<br>Intensidad ${nf2.format(best[2])} mW/cm²` : "")
-        + `<br>Cielo despejado: ${nf1.format(cs)}`, ev);
+        + `<br>Cielo despejado: ${nf1.format(cs)}`
+        + (best[3] === "estimado" ? "<br>Estimado (sol bajo)" : ""), ev);
     };
     hit.addEventListener("pointermove", onMove);
     hit.addEventListener("pointerdown", onMove);
@@ -660,24 +679,36 @@
     const div = document.createElement("div");
     div.className = "legend";
     const items = LEVELS.map((l) => `<span><i style="background:${l.color}"></i>${l.name}</span>`);
-    if (withClear) items.push('<span><i class="dash"></i>Cielo despejado (modelo)</span>');
+    if (withClear) {
+      items.push('<span><i class="dash"></i>Cielo despejado (modelo)</span>');
+      items.push('<span><i class="est"></i>Estimado: sol bajo (&lt; 32° de altura), el sensor queda parcialmente en sombra</span>');
+    }
     items.push('<span><i style="background:repeating-linear-gradient(45deg,var(--line) 0 2px,transparent 2px 5px);border:1px solid var(--line)"></i>Sin datos</span>');
     div.innerHTML = items.join("");
     return div;
   }
 
-  /* ---------- Tabla de 5 minutos ---------- */
+  /* ---------- Tabla del día ---------- */
 
   function drawMatrix(key, a) {
     const table = $("day-matrix");
     table.replaceChildren();
-    const byMin = new Map(a.series.map(([m, uvi]) => [m, uvi]));
+    const step = a.step;
+    const cols = Math.max(1, Math.round(60 / step));
+    // Cada lectura va al ciclo más cercano; si dos coinciden, se muestra la mayor
+    const byCell = new Map();
+    for (const [m, uvi, , estado] of a.series) {
+      if (uvi === null || uvi === undefined) continue;
+      const c = cycleOf(m, step);
+      const prev = byCell.get(c);
+      if (!prev || uvi > prev.v) byCell.set(c, { v: uvi, est: estado === "estimado" });
+    }
     const h0 = Math.floor(a.sun.rise / 60);
     const h1 = Math.floor(a.sun.set / 60);
 
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    hr.innerHTML = `<th scope="col">Hora</th>${Array.from({ length: 12 }, (_, i) => `<th scope="col">:${pad(i * 5)}</th>`).join("")}<th scope="col" class="col-max">Máx.</th>`;
+    hr.innerHTML = `<th scope="col">Hora</th>${Array.from({ length: cols }, (_, i) => `<th scope="col">:${pad(i * step)}</th>`).join("")}<th scope="col" class="col-max">Máx.</th>`;
     thead.appendChild(hr);
 
     const tbody = document.createElement("tbody");
@@ -685,14 +716,15 @@
       const tr = document.createElement("tr");
       let cells = `<th scope="row">${pad(h)}</th>`;
       let mx = null;
-      for (let i = 0; i < 12; i += 1) {
-        const v = byMin.get(h * 60 + i * 5);
-        if (v === undefined || v === null) {
+      for (let i = 0; i < cols; i += 1) {
+        const cell = byCell.get(h * 60 + i * step);
+        if (!cell) {
           cells += '<td class="empty">·</td>';
         } else {
-          const l = levelOf(v);
-          mx = mx === null ? v : Math.max(mx, v);
-          cells += `<td style="background:${l.color};color:${l.fg}">${v}</td>`;
+          const l = levelOf(cell.v);
+          mx = mx === null ? cell.v : Math.max(mx, cell.v);
+          const cls = cell.est ? ' class="is-estimado" title="Estimado: sol bajo"' : "";
+          cells += `<td${cls} style="background:${l.color};color:${l.fg}">${cell.v}</td>`;
         }
       }
       if (mx === null) cells += '<td class="col-max empty">·</td>';
@@ -720,14 +752,14 @@
       const date = fmtShort.format(dateFromKey(r.key));
       if (!r.has || !r.a.max) {
         tr.className = "no-data";
-        tr.innerHTML = `<td>${date}</td><td colspan="5">Sin datos</td>`;
+        tr.innerHTML = `<td>${date}</td><td colspan="4">Sin datos</td>`;
         return tr;
       }
       const a = r.a;
       tr.tabIndex = 0;
       if (r.key === state.selected) tr.classList.add("is-selected");
       tr.innerHTML = `<td>${date}</td><td>${chipHtml(a.max[1])}</td><td>${hm(a.max[0])}</td>
-        <td>${duration(a.minutesHigh)}</td><td>${nf1.format(a.doseSed)} SED</td>
+        <td>${duration(a.minutesHigh)}</td>
         <td>${a.coverage === null ? "--" : `${nf0.format(a.coverage * 100)} %`}</td>`;
       tr.addEventListener("click", () => selectDay(r.key, true));
       tr.addEventListener("keydown", (e) => {
@@ -787,7 +819,7 @@
         const t = svg("text", { x: cx, y: y(v) - 5, "text-anchor": "middle", class: "note" }, g);
         t.textContent = v;
       }
-      const tip = (ev) => showTip(`<strong>${dayLabel(r.key, true)}</strong><br>Máximo ${v}, ${levelOf(v).name.toLowerCase()}, a las ${hm(r.a.max[0])}<br>Dosis ${nf1.format(r.a.doseSed)} SED`, ev);
+      const tip = (ev) => showTip(`<strong>${dayLabel(r.key, true)}</strong><br>Máximo ${v}, ${levelOf(v).name.toLowerCase()}, a las ${hm(r.a.max[0])}`, ev);
       hit.addEventListener("pointermove", tip);
       hit.addEventListener("pointerleave", () => showTip(null));
       hit.addEventListener("click", () => {
@@ -819,7 +851,7 @@
       ["Estación", st.name || st.id],
       ["Ubicación", `${st.place} (aprox. ${nf2.format(st.latitude)}°, ${nf2.format(st.longitude)}°)`],
       ["Sensor", st.sensor],
-      ["Rango", `Índice UV de ${st.uv_index_range[0]} a ${st.uv_index_range[1]}, en valores enteros`],
+      ["Magnitud medida", "Intensidad UV de banda ancha (290–390 nm, mW/cm²); el índice UV se calcula a partir de ella"],
       ["Medición", `Cada ${d.measurement_interval_minutes} minutos`],
       ["Transmisión", "Red celular LTE, protocolo MQTT"],
       ["Publicación", `Cada ${d.export_interval_minutes} minutos`],
@@ -862,10 +894,10 @@
 
   function downloadCsv() {
     if (!state.data) return;
-    const lines = ["fecha,hora,indice_uv,intensidad_mw_cm2"];
+    const lines = ["fecha,hora,indice_uv,intensidad_mw_cm2,estado"];
     for (const key of state.dayKeys) {
-      for (const [m, uvi, inten] of state.days.get(key).series) {
-        lines.push(`${key},${hm(m)},${uvi ?? ""},${inten ?? ""}`);
+      for (const [m, uvi, inten, estado] of state.days.get(key).series) {
+        lines.push(`${key},${hm(m)},${uvi ?? ""},${inten ?? ""},${estado ?? ""}`);
       }
     }
     const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });

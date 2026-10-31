@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Índice UV en el campus de la UNA, San Lorenzo</title>
-  <meta name="description" content="Índice de radiación ultravioleta medido cada 5 minutos en el campus de la Universidad Nacional de Asunción, San Lorenzo, Paraguay. Valor actual, evolución del día, historial y recomendaciones de protección.">
+  <meta name="description" content="Índice de radiación ultravioleta calculado a partir de la intensidad UV medida cada 10 minutos en el campus de la Universidad Nacional de Asunción, San Lorenzo, Paraguay. Valor actual, evolución del día, historial y recomendaciones de protección.">
   <meta name="theme-color" content="#1d3a6e">
   <link rel="icon" href="assets/img/logo-fpuna.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,7 +69,7 @@
       <div class="block__head block__head--row">
         <div>
           <h2 id="day-title">Evolución del día</h2>
-          <p>Mediciones cada 5 minutos, en hora de Paraguay. La línea punteada es el índice UV que se esperaría con cielo totalmente despejado: la distancia entre la línea y las barras muestra el efecto de las nubes.</p>
+          <p>Mediciones cada <span class="js-interval">10</span> minutos, en hora de Paraguay. La línea punteada es el índice UV que se esperaría con cielo totalmente despejado: la distancia entre la línea y las barras muestra el efecto de las nubes.</p>
         </div>
         <div class="day-picker">
           <button type="button" class="icon-btn" id="day-prev" aria-label="Día anterior">‹</button>
@@ -83,7 +83,7 @@
       <div class="chart" id="day-chart"></div>
 
       <details class="matrix" open>
-        <summary>Tabla de valores cada 5 minutos</summary>
+        <summary>Tabla de valores cada <span class="js-interval">10</span> minutos</summary>
         <div class="table-scroll">
           <table class="matrix__table" id="day-matrix"></table>
         </div>
@@ -105,7 +105,6 @@
               <th scope="col">Máximo</th>
               <th scope="col">Hora del máximo</th>
               <th scope="col">Tiempo con UV alto o más</th>
-              <th scope="col">Dosis eritémica</th>
               <th scope="col">Datos recibidos</th>
             </tr>
           </thead>
@@ -126,7 +125,6 @@
         <div>
           <h3>Equivalencias</h3>
           <p>Un punto del índice equivale a 25 mW/m² de irradiancia eritémica, es decir, la radiación ponderada según su capacidad de enrojecer la piel.</p>
-          <p>La dosis eritémica estándar (SED) es de 100 J/m².</p>
         </div>
       </div>
     </section>
@@ -138,8 +136,8 @@
       </div>
       <div class="about">
         <div class="about__text">
-          <p>La estación UV-001 está instalada en el campus de la Universidad Nacional de Asunción, en San Lorenzo. Un sensor de radiación ultravioleta mide el índice UV cada 5 minutos y la estación envía cada lectura por red celular LTE a un servidor del laboratorio de la Facultad Politécnica, donde se almacena. Cada 15 minutos, el servidor publica en esta página un resumen de las mediciones.</p>
-          <p>Los datos son preliminares y no han pasado por un proceso de validación contra un instrumento de referencia. El sensor entrega el índice en valores enteros, por lo que la curva del día avanza en escalones. Este portal tiene fines académicos y de divulgación, y no reemplaza los avisos oficiales.</p>
+          <p>La estación UV-001 está instalada en el campus de la Universidad Nacional de Asunción, en San Lorenzo. Un sensor mide la intensidad de la radiación ultravioleta cada <span class="js-interval">10</span> minutos y la estación envía cada lectura por red celular LTE a un servidor del laboratorio de la Facultad Politécnica, donde se almacena. Cada 15 minutos, el servidor publica en esta página un resumen de las mediciones.</p>
+          <p>El índice UV se obtiene a partir de la intensidad medida por el sensor, mediante una calibración preliminar contra un modelo de transferencia radiativa de cielo despejado (TUV), contrastada con la estación de la DMH en Asunción. Incertidumbre estimada: ±10–12 %. Portal con fines académicos y de divulgación; no reemplaza los avisos oficiales. <span class="calibration" id="calibration" hidden>Versión de calibración: <strong id="calibration-version"></strong>.</span></p>
           <p class="downloads">
             <button type="button" class="btn" id="download-csv">Descargar datos (CSV)</button>
             <a class="btn btn--ghost" href="data/data.json" download>Descargar datos (JSON)</a>

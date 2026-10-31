@@ -24,8 +24,9 @@ data/data.json          datos publicados por el servidor
   "is_sample": false,
   "generated_at": "2026-10-02T14:45:00-03:00",
   "utc_offset_minutes": -180,
+  "calibration_version": "2026-10-TUV-v1 (preliminar)",
   "export_interval_minutes": 15,
-  "measurement_interval_minutes": 5,
+  "measurement_interval_minutes": 10,
   "stale_after_minutes": 30,
   "station": {
     "id": "UV-001",
@@ -36,14 +37,14 @@ data/data.json          datos publicados por el servidor
     "sensor": "DFRobot SEN0642 (RS485/Modbus)",
     "uv_index_range": [0, 15]
   },
-  "current": { "measured_at": "2026-10-02T14:40:00-03:00", "uv_index": 9, "uv_intensity": 0.89 },
+  "current": { "measured_at": "2026-10-26T12:09:58-03:00", "uv_index": 12.1, "uv_intensity": 12.29, "estado": "valido" },
   "days": [
-    { "date": "2026-10-02", "series": [[600, 6, 0.61], [605, 6, 0.63]] }
+    { "date": "2026-10-26", "series": [[430, 0.6, 0.78, "estimado"], [730, 12.1, 12.29, "valido"]] }
   ]
 }
 ```
 
-Cada elemento de `series` es `[minuto del día en hora local, índice UV, intensidad en mW/cm²]`. Las coordenadas se publican redondeadas a dos decimales. `days` contiene los últimos 30 días.
+Cada elemento de `series` es `[minuto del día en hora local, índice UV calibrado (1 decimal), intensidad en mW/cm², estado]`. El índice UV se calcula a partir de la intensidad con la calibración indicada en `calibration_version`; `estado` es `"valido"` o `"estimado"` (sol a menos de 32° de altura, el sensor queda parcialmente en sombra). Los minutos se ubican en una grilla de 5 minutos; la estación mide cada `measurement_interval_minutes`. Las coordenadas se publican redondeadas a dos decimales. `days` contiene los últimos 30 días.
 
 ## Prueba local
 
