@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Índice UV en el campus de la UNA, San Lorenzo</title>
+  <meta name="description" content="Índice de radiación ultravioleta calculado a partir de la intensidad UV medida cada 10 minutos en el campus de la Universidad Nacional de Asunción, San Lorenzo, Paraguay. Valor actual, evolución del día, historial y recomendaciones de protección.">
+  <meta name="theme-color" content="#1d3a6e">
+  <link rel="icon" href="assets/img/logo-fpuna.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead__inner">
+      <a class="brand" href="https://www.pol.una.py" target="_blank" rel="noopener" aria-label="Facultad Politécnica, Universidad Nacional de Asunción">
+        <img src="assets/img/logo-fpuna.png" alt="Logo de la Facultad Politécnica de la UNA" width="56" height="80">
+      </a>
+      <div class="masthead__title">
+        <h1>Índice UV en el campus de la UNA</h1>
+        <p id="station-place">San Lorenzo, Paraguay</p>
+      </div>
+      <div class="status" id="status" role="status" aria-live="polite">
+        <span class="status__dot" aria-hidden="true"></span>
+        <span class="status__text">Cargando datos…</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="demo-banner" id="demo-banner" hidden>
+    Estás viendo datos de demostración generados con un modelo. Las mediciones reales de la estación aparecerán acá cuando el servidor empiece a publicarlas.
+  </div>
+
+  <main>
+    <!-- Valor actual + arco solar -->
+    <section class="now" aria-labelledby="now-title">
+      <div class="now__reading">
+        <h2 id="now-title" class="visually-hidden">Índice UV actual</h2>
+        <div class="reading" id="reading">
+          <div class="reading__value" id="reading-value">--</div>
+          <div class="reading__meta">
+            <p class="reading__level" id="reading-level">Sin datos</p>
+            <p class="reading__time" id="reading-time"></p>
+          </div>
+        </div>
+        <p class="now__advice" id="now-advice"></p>
+        <dl class="now__facts" id="now-facts"></dl>
+        <p class="hint" id="risk-window"></p>
+      </div>
+
+      <figure class="arc" aria-labelledby="arc-caption">
+        <svg id="arc-svg" viewBox="0 0 520 300" role="img" aria-label="Recorrido del sol hoy, coloreado según el índice UV medido"></svg>
+        <figcaption id="arc-caption">
+          El arco representa el recorrido del sol de hoy, desde la salida hasta la puesta. Cada tramo toma el color del índice UV medido en ese momento.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- Escala 0–15 -->
+    <section class="scale" aria-labelledby="scale-title">
+      <h2 id="scale-title" class="visually-hidden">Posición en la escala del índice UV</h2>
+      <div class="ruler" id="ruler"></div>
+    </section>
+
+    <!-- Día -->
+    <section class="block" id="dia" aria-labelledby="day-title">
+      <div class="block__head block__head--row">
+        <div>
+          <h2 id="day-title">Evolución del día</h2>
+          <p>Mediciones cada <span class="js-interval">10</span> minutos, en hora de Paraguay. La línea punteada es el índice UV que se esperaría con cielo totalmente despejado: la distancia entre la línea y las barras muestra el efecto de las nubes.</p>
+        </div>
+        <div class="day-picker">
+          <button type="button" class="icon-btn" id="day-prev" aria-label="Día anterior">‹</button>
+          <label class="visually-hidden" for="day-select">Elegir día</label>
+          <select id="day-select"></select>
+          <button type="button" class="icon-btn" id="day-next" aria-label="Día siguiente">›</button>
+        </div>
+      </div>
+
+      <dl class="stats" id="day-stats"></dl>
+      <div class="chart" id="day-chart"></div>
+
+      <details class="matrix" open>
+        <summary>Tabla de valores cada <span class="js-interval">10</span> minutos</summary>
+        <div class="table-scroll">
+          <table class="matrix__table" id="day-matrix"></table>
+        </div>
+      </details>
+    </section>
+
+    <!-- Historial -->
+    <section class="block" id="historial" aria-labelledby="history-title">
+      <div class="block__head">
+        <h2 id="history-title">Últimos 30 días</h2>
+        <p>Índice UV máximo de cada día. Tocá una barra o una fila para ver ese día en detalle.</p>
+      </div>
+      <div class="chart" id="history-chart"></div>
+      <div class="table-scroll">
+        <table class="history" id="history-table">
+          <thead>
+            <tr>
+              <th scope="col">Fecha</th>
+              <th scope="col">Máximo</th>
+              <th scope="col">Hora del máximo</th>
+              <th scope="col">Tiempo con UV alto o más</th>
+              <th scope="col">Datos recibidos</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Escala explicada -->
+    <section class="block" aria-labelledby="guide-title">
+      <div class="block__head">
+        <h2 id="guide-title">Cómo leer el índice UV</h2>
+        <p>El índice UV es una escala de la Organización Mundial de la Salud que expresa la intensidad de la radiación ultravioleta capaz de quemar la piel. Cuanto más alto el número, menos tiempo hace falta para sufrir una quemadura.</p>
+      </div>
+      <ul class="guide" id="guide-list"></ul>
+
+      <div class="notes">
+        <div>
+          <h3>Equivalencias</h3>
+          <p>Un punto del índice equivale a 25 mW/m² de irradiancia eritémica, es decir, la radiación ponderada según su capacidad de enrojecer la piel.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estación -->
+    <section class="block" aria-labelledby="about-title">
+      <div class="block__head">
+        <h2 id="about-title">Sobre la estación y los datos</h2>
+      </div>
+      <div class="about">
+        <div class="about__text">
+          <p>La estación UV-001 está instalada en el campus de la Universidad Nacional de Asunción, en San Lorenzo. Un sensor mide la intensidad de la radiación ultravioleta cada <span class="js-interval">10</span> minutos y la estación envía cada lectura por red celular LTE a un servidor del laboratorio de la Facultad Politécnica, donde se almacena. Cada <span class="js-export-interval">10</span> minutos, el servidor publica en esta página un resumen de las mediciones.</p>
+          <p>El índice UV se obtiene a partir de la intensidad medida por el sensor, mediante una calibración preliminar contra un modelo de transferencia radiativa de cielo despejado (TUV), contrastada con la estación de la DMH en Asunción. Incertidumbre estimada: ±10–12 %. Portal con fines académicos y de divulgación; no reemplaza los avisos oficiales. <span class="calibration" id="calibration" hidden>Versión de calibración: <strong id="calibration-version"></strong>.</span></p>
+          <p class="downloads">
+            <button type="button" class="btn" id="download-csv">Descargar datos (CSV)</button>
+            <a class="btn btn--ghost" href="data/data.json" download>Descargar datos (JSON)</a>
+          </p>
+        </div>
+        <dl class="specs" id="specs"></dl>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <img src="assets/img/logo-fpuna.png" alt="" width="36" height="51">
+      <div>
+        <p><strong>Sistema IoT de monitoreo en tiempo real e histórico del índice de radiación UV solar en el campus de la Universidad Nacional de Asunción</strong></p>
+        <p>Trabajo Final de Grado de Juan Alberto Gamarra Aquino y José Emilio Velázquez Insaurralde. Ingeniería en Electrónica, Facultad Politécnica, Universidad Nacional de Asunción.</p>
+      </div>
+    </div>
+  </footer>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+  <script src="assets/js/app.js" defer></script>
+</body>
+</html>
