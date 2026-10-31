@@ -10,8 +10,8 @@
     refreshMs: 5 * 60 * 1000,
     ozoneDU: 280, // columna de ozono típica para el modelo de cielo despejado
     defaultIntervalMin: 10,
-    // Ventana de operación de la estación, en minutos del día (06:00 a 20:30)
-    activeWindow: { start: 6 * 60, end: 20 * 60 + 30 },
+    // Ventana de medición si data.json no trae measurement_windows
+    defaultWindow: { start: "06:00", end: "20:30" },
   };
 
   // Escala de la OMS
@@ -66,6 +66,7 @@
   const nf1 = new Intl.NumberFormat("es-PY", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const nf2 = new Intl.NumberFormat("es-PY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const nf0 = new Intl.NumberFormat("es-PY", { maximumFractionDigits: 0 });
+  const fmtUvi = (v) => nf1.format(v);
 
   function levelOf(uvi) {
     if (uvi === null || uvi === undefined || Number.isNaN(uvi)) return NO_LEVEL;
@@ -191,6 +192,21 @@
     return (state.data && state.data.measurement_interval_minutes) || CONFIG.defaultIntervalMin;
   }
 
+  const hmToMin = (text) => {
+    const [h, m] = text.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  // Ventana de medición vigente en la fecha key (la última con from <= key)
+  function windowFor(key) {
+    let w = CONFIG.defaultWindow;
+    const list = (state.data && state.data.measurement_windows) || [];
+    for (const item of [...list].sort((p, q) => p.from.localeCompare(q.from))) {
+      if (item.from <= key) w = item;
+    }
+    return { start: hmToMin(w.start), end: hmToMin(w.end) };
+  }
+
   // Ciclo de medición más cercano al minuto m
   function cycleOf(m, step) {
     return Math.round(m / step) * step;
@@ -201,7 +217,7 @@
     const series = day ? day.series : [];
     const step = intervalMin();
     const sun = sunTimes(key);
-    const win = CONFIG.activeWindow;
+    const win = windowFor(key);
     let max = null;
     let minutesHigh = 0;
     const received = new Set();
@@ -219,7 +235,7 @@
     const expected = end < win.start ? 0 : Math.floor((end - win.start) / step) + 1;
     const coverage = expected > 0 ? Math.min(1, received.size / expected) : null;
 
-    return { series, max, minutesHigh, coverage, sun, step };
+    return { series, max, minutesHigh, coverage, sun, step, win };
   }
 
   function riskWindow(key, threshold) {
@@ -334,7 +350,7 @@
       $("now-advice").textContent = "";
     } else {
       const lvl = levelOf(c.uv_index);
-      valueEl.textContent = nf0.format(c.uv_index);
+      valueEl.textContent = fmtUvi(c.uv_index);
       valueEl.style.setProperty("--level-bg", stale ? NO_LEVEL.color : lvl.color);
       valueEl.style.setProperty("--level-fg", stale ? NO_LEVEL.fg : lvl.fg);
       if (stale) {
@@ -352,7 +368,7 @@
 
     const today = analyze(now.date);
     const facts = [];
-    facts.push(["Máximo de hoy", today.max ? `${today.max[1]} <small>a las ${hm(today.max[0])}</small>` : "--"]);
+    facts.push(["Máximo de hoy", today.max ? `${fmtUvi(today.max[1])} <small>a las ${hm(today.max[0])}</small>` : "--"]);
     facts.push(["Intensidad UV", c && !stale && c.uv_intensity !== null ? `${nf2.format(c.uv_intensity)} mW/cm²` : "--"]);
     const el = elevationDeg(now.date, now.minute);
     facts.push(["Altura del sol", el > 0 ? `${nf0.format(el)}°` : "Bajo el horizonte"]);
@@ -435,7 +451,7 @@
       const cs = clearSkyUvi(key, now.minute);
       label(cx, cy - 98, "Con cielo despejado,", "lbl");
       label(cx, cy - 76, "ahora se esperaría un índice de", "lbl");
-      const big = label(cx, cy - 26, nf0.format(Math.round(cs)), "lbl-strong");
+      const big = label(cx, cy - 26, fmtUvi(cs), "lbl-strong");
       big.setAttribute("style", "font-size:44px;font-weight:800");
     } else {
       label(cx, cy - 70, "Es de noche:", "lbl");
@@ -464,7 +480,7 @@
       const mk = document.createElement("div");
       mk.className = "ruler__marker";
       mk.style.left = pos(c.uv_index);
-      mk.textContent = `Ahora ${c.uv_index}`;
+      mk.textContent = `Ahora ${fmtUvi(c.uv_index)}`;
       box.appendChild(mk);
     }
     const today = analyze(localParts(refNow()).date);
@@ -472,7 +488,7 @@
       const mx = document.createElement("div");
       mx.className = "ruler__marker ruler__marker--max";
       mx.style.left = pos(today.max[1]);
-      mx.textContent = `Máximo de hoy ${today.max[1]}`;
+      mx.textContent = `Máximo de hoy ${fmtUvi(today.max[1])}`;
       box.appendChild(mx);
     }
   }
@@ -531,7 +547,7 @@
 
   function chipHtml(uvi) {
     const l = levelOf(uvi);
-    return `<span class="chip" style="background:${l.color};color:${l.fg}">${uvi}</span>`;
+    return `<span class="chip" style="background:${l.color};color:${l.fg}">${fmtUvi(uvi)}</span>`;
   }
 
   function renderDay() {
@@ -565,8 +581,8 @@
     const pw = W - M.l - M.r;
     const ph = H - M.t - M.b;
 
-    const t0 = Math.floor((a.sun.rise - 30) / 60) * 60;
-    const t1 = Math.ceil((a.sun.set + 30) / 60) * 60;
+    const t0 = Math.min(5 * 60, Math.floor((Math.min(a.sun.rise, a.win.start) - 30) / 60) * 60);
+    const t1 = Math.max(21 * 60 + 30, Math.ceil((Math.max(a.sun.set, a.win.end) + 30) / 60) * 60);
     const inWin = a.series.filter(([m]) => m >= t0 && m <= t1);
 
     let clearMax = 0;
@@ -583,7 +599,7 @@
     const y = (v) => M.t + ph - (v / yMax) * ph;
 
     const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img",
-      "aria-label": `Índice UV del ${dayLabel(key, true)}. Máximo ${a.max ? a.max[1] : "sin datos"}.` });
+      "aria-label": `Índice UV del ${dayLabel(key, true)}. Máximo ${a.max ? fmtUvi(a.max[1]) : "sin datos"}.` });
     root.style.color = "var(--ink)";
     hatchDefs(root, "hatch-day");
 
@@ -613,14 +629,15 @@
 
     // Huecos sin datos durante el día
     const step = a.step;
-    let prev = Math.max(t0, a.sun.rise);
+    let prev = a.win.start;
     const gaps = [];
     for (const [m] of inWin) {
+      if (m < a.win.start || m > a.win.end) continue;
       if (m - prev > step * 3) gaps.push([prev, m]);
       prev = m;
     }
     const today = localParts(refNow());
-    const endDay = key === today.date ? Math.min(today.minute, a.sun.set) : a.sun.set;
+    const endDay = key === today.date ? Math.min(today.minute, a.win.end) : a.win.end;
     if (endDay - prev > step * 3) gaps.push([prev, endDay]);
     for (const [g0, g1] of gaps) {
       svg("rect", { x: x(g0), y: M.t, width: Math.max(0, x(g1) - x(g0)), height: ph, fill: "url(#hatch-day)" }, root);
@@ -659,7 +676,7 @@
       cursor.setAttribute("visibility", "visible");
       const lv = levelOf(best[1]);
       const cs = clearSkyUvi(key, best[0]);
-      showTip(`<strong>${hm(best[0])}</strong><br>Índice UV ${best[1]}, ${lv.name.toLowerCase()}`
+      showTip(`<strong>${hm(best[0])}</strong><br>Índice UV ${fmtUvi(best[1])}, ${lv.name.toLowerCase()}`
         + (best[2] !== null && best[2] !== undefined ? `<br>Intensidad ${nf2.format(best[2])} mW/cm²` : "")
         + `<br>Cielo despejado: ${nf1.format(cs)}`
         + (best[3] === "estimado" ? "<br>Estimado (sol bajo)" : ""), ev);
@@ -703,8 +720,8 @@
       const prev = byCell.get(c);
       if (!prev || uvi > prev.v) byCell.set(c, { v: uvi, est: estado === "estimado" });
     }
-    const h0 = Math.floor(a.sun.rise / 60);
-    const h1 = Math.floor(a.sun.set / 60);
+    const h0 = Math.floor(Math.min(a.sun.rise, a.win.start) / 60);
+    const h1 = Math.floor(Math.max(a.sun.set, a.win.end) / 60);
 
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
@@ -724,13 +741,13 @@
           const l = levelOf(cell.v);
           mx = mx === null ? cell.v : Math.max(mx, cell.v);
           const cls = cell.est ? ' class="is-estimado" title="Estimado: sol bajo"' : "";
-          cells += `<td${cls} style="background:${l.color};color:${l.fg}">${cell.v}</td>`;
+          cells += `<td${cls} style="background:${l.color};color:${l.fg}">${fmtUvi(cell.v)}</td>`;
         }
       }
       if (mx === null) cells += '<td class="col-max empty">·</td>';
       else {
         const l = levelOf(mx);
-        cells += `<td class="col-max" style="background:${l.color};color:${l.fg}">${mx}</td>`;
+        cells += `<td class="col-max" style="background:${l.color};color:${l.fg}">${fmtUvi(mx)}</td>`;
       }
       tr.innerHTML = cells;
       tbody.appendChild(tr);
@@ -817,9 +834,9 @@
         class: `bar${r.key === state.selected ? " is-selected" : ""}` }, g);
       if (bw >= 16) {
         const t = svg("text", { x: cx, y: y(v) - 5, "text-anchor": "middle", class: "note" }, g);
-        t.textContent = v;
+        t.textContent = fmtUvi(v);
       }
-      const tip = (ev) => showTip(`<strong>${dayLabel(r.key, true)}</strong><br>Máximo ${v}, ${levelOf(v).name.toLowerCase()}, a las ${hm(r.a.max[0])}`, ev);
+      const tip = (ev) => showTip(`<strong>${dayLabel(r.key, true)}</strong><br>Máximo ${fmtUvi(v)}, ${levelOf(v).name.toLowerCase()}, a las ${hm(r.a.max[0])}`, ev);
       hit.addEventListener("pointermove", tip);
       hit.addEventListener("pointerleave", () => showTip(null));
       hit.addEventListener("click", () => {

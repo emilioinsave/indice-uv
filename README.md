@@ -27,6 +27,10 @@ data/data.json          datos publicados por el servidor
   "calibration_version": "2026-10-TUV-v1 (preliminar)",
   "export_interval_minutes": 15,
   "measurement_interval_minutes": 10,
+  "measurement_windows": [
+    { "from": "2026-10-16", "start": "06:00", "end": "20:30" },
+    { "from": "2026-11-01", "start": "05:30", "end": "21:00" }
+  ],
   "stale_after_minutes": 30,
   "station": {
     "id": "UV-001",
@@ -44,7 +48,7 @@ data/data.json          datos publicados por el servidor
 }
 ```
 
-Cada elemento de `series` es `[minuto del día en hora local, índice UV calibrado (1 decimal), intensidad en mW/cm², estado]`. El índice UV se calcula a partir de la intensidad con la calibración indicada en `calibration_version`; `estado` es `"valido"` o `"estimado"` (sol a menos de 32° de altura, el sensor queda parcialmente en sombra). Los minutos se ubican en una grilla de 5 minutos; la estación mide cada `measurement_interval_minutes`. Las coordenadas se publican redondeadas a dos decimales. `days` contiene los últimos 30 días.
+Cada elemento de `series` es `[minuto del día en hora local, índice UV calibrado (1 decimal), intensidad en mW/cm², estado]`. El índice UV se calcula a partir de la intensidad con la calibración indicada en `calibration_version`; `estado` es `"valido"` o `"estimado"` (sol a menos de 32° de altura, el sensor queda parcialmente en sombra). Los minutos se ubican en una grilla de 5 minutos; la estación mide cada `measurement_interval_minutes`. `measurement_windows` indica la ventana de medición de la estación vigente desde cada fecha (hora local); "Datos recibidos" se calcula sobre los ciclos esperados en esa ventana y, si el campo falta, se usa 06:00–20:30. Las coordenadas se publican redondeadas a dos decimales. `days` contiene los últimos 30 días.
 
 ## Prueba local
 
