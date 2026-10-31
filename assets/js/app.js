@@ -35,7 +35,7 @@
       key: "vhigh", name: "Muy alto", min: 8, max: 10, range: "8 a 10",
       color: "#d8001d", fg: "#ffffff",
       advice: "Evitar el sol en las horas centrales. Protección completa: sombra, ropa, sombrero, gafas y protector solar FPS 50 o más.",
-      guide: "Riesgo muy alto: la piel clara puede quemarse en menos de 15 minutos. Evitar el sol en las horas centrales y extremar la protección.",
+      guide: "Riesgo muy alto: la piel sin protección puede quemarse en poco tiempo. Evitar el sol en las horas centrales y extremar la protección.",
     },
     {
       key: "ext", name: "Extremo", min: 11, max: 99, range: "11 o más",
@@ -45,16 +45,6 @@
     },
   ];
   const NO_LEVEL = { key: "none", name: "Sin datos", color: "#8a99ab", fg: "#ffffff", advice: "" };
-
-  // Fototipos de Fitzpatrick con dosis mínima eritémica (MED) de referencia, en J/m² eritémicos
-  const SKIN = [
-    { type: "I", desc: "Muy clara, siempre se quema", med: 200, tone: "#f6dccb" },
-    { type: "II", desc: "Clara, se quema con facilidad", med: 250, tone: "#ebc4a5" },
-    { type: "III", desc: "Morena clara, a veces se quema", med: 350, tone: "#d4a27c" },
-    { type: "IV", desc: "Morena, rara vez se quema", med: 450, tone: "#b07a52" },
-    { type: "V", desc: "Oscura, casi nunca se quema", med: 600, tone: "#7e5133" },
-    { type: "VI", desc: "Muy oscura, no se quema", med: 1000, tone: "#4a2f21" },
-  ];
 
   const UVI_TO_WM2 = 0.025; // 1 punto del índice = 25 mW/m² eritémicos
   const SED_J = 100;
@@ -276,7 +266,7 @@
     renderNow();
     renderArc();
     renderRuler();
-    renderSkin();
+    renderRiskWindow();
     renderDayPicker();
     renderDay();
     renderHistory();
@@ -470,27 +460,7 @@
     }
   }
 
-  function renderSkin() {
-    const c = state.data.current;
-    const uvi = c && !isStale() ? c.uv_index : null;
-    const list = $("skin-list");
-    list.replaceChildren(...SKIN.map((s) => {
-      const li = document.createElement("li");
-      li.style.setProperty("--tone", s.tone);
-      let time;
-      if (uvi === null) time = "--";
-      else if (uvi === 0) time = "Sin riesgo";
-      else {
-        const min = s.med / (uvi * UVI_TO_WM2) / 60;
-        time = min > 120 ? "Más de 2 h" : `${nf0.format(min)} <small>min</small>`;
-      }
-      li.innerHTML = `<span class="skin__swatch"></span>
-        <div class="skin__type">Tipo ${s.type}</div>
-        <p class="skin__desc">${s.desc}</p>
-        <div class="skin__time">${time}</div>`;
-      return li;
-    }));
-
+  function renderRiskWindow() {
     const key = localParts(refNow()).date;
     const win = riskWindow(key, 3);
     const hi = riskWindow(key, 6);
