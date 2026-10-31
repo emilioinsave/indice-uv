@@ -1,5 +1,5 @@
 /* Portal público del índice UV — FPUNA
- * Lee data/data.json (publicado por el servidor cada 15 minutos) y dibuja
+ * Lee data/data.json (publicado por el servidor cada export_interval_minutes) y dibuja
  * todo del lado del navegador, sin dependencias externas.
  */
 (() => {
@@ -10,6 +10,7 @@
     refreshMs: 5 * 60 * 1000,
     ozoneDU: 280, // columna de ozono típica para el modelo de cielo despejado
     defaultIntervalMin: 10,
+    defaultExportMin: 10,
     // Ventana de medición si data.json no trae measurement_windows
     defaultWindow: { start: "06:00", end: "20:30" },
   };
@@ -302,6 +303,8 @@
 
   function renderDataInfo() {
     for (const el of document.querySelectorAll(".js-interval")) el.textContent = intervalMin();
+    const exportMin = state.data.export_interval_minutes || CONFIG.defaultExportMin;
+    for (const el of document.querySelectorAll(".js-export-interval")) el.textContent = exportMin;
     const version = state.data.calibration_version;
     $("calibration").hidden = !version;
     $("calibration-version").textContent = version || "";

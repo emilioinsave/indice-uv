@@ -6,7 +6,7 @@ Trabajo Final de Grado de Juan Alberto Gamarra Aquino y José Emilio Velázquez 
 
 ## Cómo funciona
 
-El sitio es estático y se publica con GitHub Pages. No tiene backend: el servidor del laboratorio genera `data/data.json` cada 15 minutos y lo sube a este repositorio. Toda la visualización se calcula en el navegador.
+El sitio es estático y se publica con GitHub Pages. No tiene backend: el servidor del laboratorio genera `data/data.json` cada 10 minutos, 2 minutos después de cada medición, y lo sube a este repositorio. Toda la visualización se calcula en el navegador.
 
 ```
 index.html              página
@@ -25,7 +25,7 @@ data/data.json          datos publicados por el servidor
   "generated_at": "2026-10-02T14:45:00-03:00",
   "utc_offset_minutes": -180,
   "calibration_version": "2026-10-TUV-v1 (preliminar)",
-  "export_interval_minutes": 15,
+  "export_interval_minutes": 10,
   "measurement_interval_minutes": 10,
   "measurement_windows": [
     { "from": "2026-10-16", "start": "06:00", "end": "20:30" },
